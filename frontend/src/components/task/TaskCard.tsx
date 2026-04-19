@@ -10,6 +10,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   critical: 'bg-red-100 text-red-700',
 }
 
+const PRIORITY_BORDER: Record<string, string> = {
+  low: '#94a3b8',      // slate-400
+  medium: '#60a5fa',   // blue-400
+  high: '#fb923c',     // orange-400
+  critical: '#f87171', // red-400
+}
+
 interface Props {
   task: Task
   status: Task['status']
@@ -27,13 +34,14 @@ export default function TaskCard({ task, status, overlay, onTaskClick }: Props) 
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging && !overlay ? 0.4 : 1,
+    borderLeft: `5px solid ${PRIORITY_BORDER[task.priority] ?? '#e2e8f0'}`,
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded shadow-sm p-3 select-none flex gap-2 group"
+      className="bg-white rounded-r shadow-sm p-3 select-none flex gap-2 group"
     >
       {/* Drag handle — only this part activates DnD */}
       <div
