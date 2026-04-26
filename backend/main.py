@@ -20,6 +20,7 @@ from app.api.contract_files import router as contract_files_router
 from app.api.files import router as files_router
 from app.api.docs import router as docs_router
 from app.api.whiteboards import router as whiteboards_router
+from app.api.meetings import router as meetings_router
 
 
 @asynccontextmanager
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     import app.models.contract_file  # noqa
     import app.models.doc  # noqa
     import app.models.whiteboard  # noqa
+    import app.models.meeting  # noqa
 
     # Create tables on startup (use Alembic in production)
     async with engine.begin() as conn:
@@ -52,6 +54,14 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE whiteboards ADD COLUMN IF NOT EXISTS project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL",
         ]:
             await conn.execute(text(_stmt))
+        # Meeting tables (idempotent — create_all handles new tables, alter for safety)
+        for _stmt in [
+            "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ",
+            "ALTER TABLE meetings ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0",
+        ]:
+            await conn.execute(text(_stmt))
+        # Enum value additions (ALTER TYPE … ADD VALUE is idempotent via IF NOT EXISTS)
+        await conn.execute(text("ALTER TYPE taskstatus ADD VALUE IF NOT EXISTS 'canceled'"))
     yield
     await engine.dispose()
 
@@ -84,3 +94,4 @@ app.include_router(contract_files_router, prefix=settings.API_PREFIX)
 app.include_router(files_router, prefix=settings.API_PREFIX)
 app.include_router(docs_router, prefix=settings.API_PREFIX)
 app.include_router(whiteboards_router, prefix=settings.API_PREFIX)
+app.include_router(meetings_router, prefix=settings.API_PREFIX)

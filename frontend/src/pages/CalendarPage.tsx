@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useGetTasksQuery } from '@/features/kanban/taskApi'
+import { useListMeetingsQuery } from '@/features/meetings/meetingsApi'
 import { ChevronLeft, ChevronRight, CalendarDays, ArrowRight } from 'lucide-react'
 import type { RootState } from '@/store'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const DAYS   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 const PROJECT_PALETTES = [
   { bg: 'bg-blue-100',    text: 'text-blue-800',    dot: 'bg-blue-500' },
@@ -21,7 +22,8 @@ function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
 function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay()
+  // 0=Sun→6, 1=Mon→0, 2=Tue→1, ... 6=Sat→5
+  return (new Date(year, month, 1).getDay() + 6) % 7
 }
 
 // ── Single project task fetcher ───────────────────────────────────────────────
@@ -55,10 +57,12 @@ function CombinedCalendar({
   projects,
   year,
   month,
+  contractId,
 }: {
   projects: { id: string; name: string }[]
   year: number
   month: number
+  contractId: string
 }) {
   // Collect tasks per project (hooks called unconditionally in stable order)
   const allProjectTasks: { task: any; palette: typeof PROJECT_PALETTES[0] }[] = []
@@ -69,6 +73,9 @@ function CombinedCalendar({
     tasks.forEach((t) => allProjectTasks.push({ task: t, palette: pal }))
   }
 
+  // Meetings for this contract
+  const { data: meetings = [] } = useListMeetingsQuery(contractId ? { contract_id: contractId } : {})
+
   const today       = new Date()
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay    = getFirstDayOfMonth(year, month)
@@ -76,9 +83,14 @@ function CombinedCalendar({
     i < firstDay ? null : i - firstDay + 1
   )
 
-  function itemsForDay(day: number) {
+  function taskItemsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     return allProjectTasks.filter(({ task: t }) => t.due_date === dateStr)
+  }
+
+  function meetingsForDay(day: number) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return meetings.filter(m => m.date === dateStr)
   }
 
   return (
@@ -87,7 +99,9 @@ function CombinedCalendar({
         <div key={d} className="bg-muted text-center py-2 font-medium text-xs">{d}</div>
       ))}
       {cells.map((day, i) => {
-        const items = day ? itemsForDay(day) : []
+        const taskItems     = day ? taskItemsForDay(day) : []
+        const meetingItems  = day ? meetingsForDay(day) : []
+        const totalItems    = taskItems.length + meetingItems.length
         const isToday =
           day === today.getDate() &&
           month === today.getMonth() &&
@@ -104,7 +118,18 @@ function CombinedCalendar({
                   {day}
                 </span>
                 <div className="mt-1 space-y-0.5">
-                  {items.slice(0, 4).map(({ task: t, palette }) => (
+                  {/* Meetings first */}
+                  {meetingItems.map(m => (
+                    <div
+                      key={m.id}
+                      className="text-xs bg-amber-100 text-amber-800 px-1 rounded truncate"
+                      title={`📅 ${m.title}`}
+                    >
+                      📅 {m.title}
+                    </div>
+                  ))}
+                  {/* Tasks */}
+                  {taskItems.slice(0, Math.max(0, 4 - meetingItems.length)).map(({ task: t, palette }) => (
                     <div
                       key={t.id}
                       className={`text-xs ${palette.bg} ${palette.text} px-1 rounded truncate`}
@@ -113,9 +138,9 @@ function CombinedCalendar({
                       {t.title}
                     </div>
                   ))}
-                  {items.length > 4 && (
+                  {totalItems > 4 && (
                     <div className="text-xs text-muted-foreground px-1">
-                      +{items.length - 4} more
+                      +{totalItems - 4} more
                     </div>
                   )}
                 </div>
@@ -195,7 +220,15 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      {inWork.projects.length > 0 && <Legend projects={inWork.projects} />}
+      {inWork.projects.length > 0 && (
+        <div className="flex flex-wrap gap-3 items-center">
+          <Legend projects={inWork.projects} />
+          <span className="flex items-center gap-1.5 text-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            Meetings
+          </span>
+        </div>
+      )}
 
       {/* Calendar grid */}
       {inWork.projects.length === 0 ? (
@@ -204,7 +237,7 @@ export default function CalendarPage() {
           <p className="font-medium">No projects in this contract</p>
         </div>
       ) : (
-        <CombinedCalendar projects={inWork.projects} year={year} month={month} />
+        <CombinedCalendar projects={inWork.projects} year={year} month={month} contractId={inWork.contractId} />
       )}
     </div>
   )

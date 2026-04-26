@@ -13,6 +13,7 @@ class TaskStatus(str, enum.Enum):
     in_progress = "in_progress"
     in_review = "in_review"
     done = "done"
+    canceled = "canceled"
 
 
 class Priority(str, enum.Enum):

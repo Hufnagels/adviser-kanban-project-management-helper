@@ -57,7 +57,7 @@ export default function ProjectDetailPage() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button
-          onClick={() => navigate(project.customer_id ? `/customers/${project.customer_id}` : '/customers')}
+          onClick={() => navigate(-1 as any)}
           className="flex items-center gap-1 hover:text-foreground"
         >
           <ChevronLeft size={14} /> Back

@@ -55,7 +55,7 @@ const BUCKETS: {
 ]
 
 const STATUS_LABELS: Record<string, string> = {
-  todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done',
+  todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done', canceled: 'Canceled',
 }
 
 const PROJECT_PALETTE = [

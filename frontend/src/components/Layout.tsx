@@ -58,7 +58,7 @@ export default function Layout() {
       <AppSidebar />
       <div className="flex flex-col flex-1 min-w-0 min-h-screen">
         {/* Top bar */}
-        <header className="flex h-12 items-center gap-2 border-b px-4 bg-background shrink-0">
+        <header className="flex h-12 items-center gap-2 border-b px-4 bg-background shrink-0 print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
           <InWorkBreadcrumb />

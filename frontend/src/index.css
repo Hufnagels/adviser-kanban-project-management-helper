@@ -68,3 +68,63 @@
 body {
   @apply bg-background text-foreground;
 }
+
+@page {
+  /* Remove browser-generated headers (date) and footers (URL, page number) */
+  margin: 0;
+  size: portrait;
+}
+
+@media print {
+  /* Hide chrome */
+  aside,
+  nav,
+  [data-sidebar] {
+    display: none !important;
+  }
+
+  /* Make the content fill the full page width */
+  html, body {
+    font-size: 12px !important;
+    width: 100%;
+    height: auto !important;
+    /* Compensate for @page margin: 0 — provide visual whitespace */
+    padding: 12mm 15mm 18mm 15mm !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Break the flex/scroll layout so all content flows naturally onto paper */
+  #root,
+  #root > div,
+  #root > div > div {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* The scroll container is the main culprit — remove it */
+  main {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* No shadows on print */
+  * {
+    box-shadow: none !important;
+    /* Suppress the global border-color rule that leaks borders everywhere */
+    border-color: transparent !important;
+  }
+
+  /* Re-enable borders only where explicitly needed */
+  hr {
+    border-color: #e5e7eb !important;
+  }
+}

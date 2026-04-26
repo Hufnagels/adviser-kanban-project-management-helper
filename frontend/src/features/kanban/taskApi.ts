@@ -15,7 +15,7 @@ export interface Task {
   title: string
   task_type?: string
   description?: string
-  status: 'todo' | 'in_progress' | 'in_review' | 'done'
+  status: 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled'
   priority: 'low' | 'medium' | 'high' | 'critical'
   listing_date?: string
   due_date?: string

@@ -57,7 +57,7 @@ export const navRoutes: RouteConfig[] = [
       { path: '/kanban',   label: 'Kanban',    icon: Kanban },
       { path: '/gantt',    label: 'Gantt',     icon: GanttChartSquare },
       { path: '/calendar', label: 'Calendar',  icon: Calendar },
-      { path: '/time',     label: 'Time',      icon: Clock },
+      { path: '/time',     label: 'Meetings',  icon: Clock },
     ],
   },
   {

@@ -27,6 +27,7 @@ const STATUS_OPTIONS: { value: Task['status']; label: string; color: string }[] 
   { value: 'in_progress', label: 'In Progress', color: 'bg-blue-100 text-blue-700' },
   { value: 'in_review', label: 'In Review', color: 'bg-yellow-100 text-yellow-800' },
   { value: 'done', label: 'Done', color: 'bg-green-100 text-green-700' },
+  { value: 'canceled', label: 'Canceled', color: 'bg-red-100 text-red-700' },
 ]
 
 const PRIORITY_OPTIONS: { value: Task['priority']; label: string; color: string }[] = [

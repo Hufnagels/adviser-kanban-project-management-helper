@@ -14,7 +14,7 @@ import TaskDrawer from './TaskDrawer'
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS: Task['status'][] = ['todo', 'in_progress', 'in_review', 'done']
+const STATUS_OPTIONS: Task['status'][] = ['todo', 'in_progress', 'in_review', 'done', 'canceled']
 const PRIORITY_OPTIONS: Task['priority'][] = ['low', 'medium', 'high', 'critical']
 
 import { TASK_COLS, STATUS_COLORS, PRIORITY_COLORS } from './taskColumns'
