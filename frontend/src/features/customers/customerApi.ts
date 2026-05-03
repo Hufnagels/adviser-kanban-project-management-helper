@@ -81,6 +81,10 @@ export const customerApi = api.injectEndpoints({
         ...(customer_id ? [{ type: 'Customer' as const, id: customer_id }] : []),
       ],
     }),
+    updateProject: build.mutation<Project, { id: string } & Partial<Omit<Project, 'id' | 'created_at'>>>({
+      query: ({ id, ...body }) => ({ url: `/projects/${id}`, method: 'PATCH', body }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: 'Project' as const, id }, { type: 'Project' as const, id: 'LIST' }],
+    }),
     deleteProject: build.mutation<void, { id: string; customer_id?: string; contract_id?: string }>({
       query: ({ id }) => ({ url: `/projects/${id}`, method: 'DELETE' }),
       invalidatesTags: (_r, _e, { id, customer_id, contract_id }) => [
@@ -103,5 +107,6 @@ export const {
   useDeleteCustomerMutation,
   useGetProjectsQuery,
   useCreateProjectMutation,
+  useUpdateProjectMutation,
   useDeleteProjectMutation,
 } = customerApi

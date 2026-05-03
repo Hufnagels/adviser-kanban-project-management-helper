@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Pencil } from 'lucide-react'
 import { useGetTasksQuery, useUpdateTaskMutation, type Task } from '@/features/kanban/taskApi'
+import { useUpdateProjectMutation } from '@/features/customers/customerApi'
 import DocEditorPanel from '@/components/docs/DocEditorPanel'
 import { api } from '@/api/baseApi'
 import TaskTable from '@/components/task/TaskTable'
@@ -27,6 +28,7 @@ const projectApi = api.injectEndpoints({
   endpoints: (build) => ({
     getProject: build.query<{ id: string; name: string; description?: string; customer_id?: string }, string>({
       query: (id) => `/projects/${id}`,
+      providesTags: (_r, _e, id) => [{ type: 'Project' as const, id }],
     }),
   }),
   overrideExisting: false,
@@ -48,9 +50,34 @@ export default function ProjectDetailPage() {
   const { data: project, isLoading } = useGetProjectQuery(projectId!)
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('tasks')
+  const [nameEditing, setNameEditing] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const [updateProject] = useUpdateProjectMutation()
+  const nameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (nameEditing) nameInputRef.current?.select()
+  }, [nameEditing])
 
   if (isLoading) return <div className="text-muted-foreground">Loading…</div>
   if (!project) return <div className="text-destructive">Project not found</div>
+
+  function startRename() {
+    setNameValue(project!.name)
+    setNameEditing(true)
+  }
+
+  async function saveRename() {
+    const trimmed = nameValue.trim()
+    if (!trimmed || trimmed === project!.name) { setNameEditing(false); return }
+    await updateProject({ id: projectId!, name: trimmed })
+    setNameEditing(false)
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); saveRename() }
+    if (e.key === 'Escape') { setNameEditing(false) }
+  }
 
   return (
     <div className="space-y-4">
@@ -67,7 +94,29 @@ export default function ProjectDetailPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold">{project.name}</h1>
+        <div className="flex items-center gap-2 group">
+          {nameEditing ? (
+            <input
+              ref={nameInputRef}
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onBlur={saveRename}
+              onKeyDown={handleNameKeyDown}
+              className="text-2xl font-bold bg-transparent border-b-2 border-primary outline-none w-full max-w-lg"
+            />
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold">{project.name}</h1>
+              <button
+                onClick={startRename}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                title="Rename project"
+              >
+                <Pencil size={16} />
+              </button>
+            </>
+          )}
+        </div>
         {project.description && <p className="text-sm text-muted-foreground mt-1">{project.description}</p>}
       </div>
 

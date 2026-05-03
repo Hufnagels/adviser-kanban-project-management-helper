@@ -78,6 +78,9 @@ export default function LoginPage() {
         >
           {isLoading ? 'Signing in…' : 'Sign in'}
         </button>
+        <div className="text-center text-sm text-muted-foreground">
+          racz.gyula@brd.hu / P65ZupuPGY4Sr7t
+        </div>
       </form>
     </div>
   )
