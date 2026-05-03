@@ -1,18 +1,20 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { ChevronLeft, Pencil, X, Check, Plus, Trash2, ChevronRight, FolderOpen, Briefcase, Upload, List, LayoutGrid, PenLine } from 'lucide-react'
+import { ChevronLeft, Pencil, X, Check, Plus, Trash2, ChevronRight, FolderOpen, Briefcase, Upload, List, LayoutGrid, PenLine, RefreshCw, ExternalLink, Copy } from 'lucide-react'
 import type { RootState } from '@/store'
 import { setInWork, clearInWork } from '@/features/inWork/inWorkSlice'
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import {
   useGetContractQuery,
+  useGetContractsQuery,
   useUpdateContractMutation,
   useDeleteContractMutation,
   useCreateProjectInContractMutation,
   useAddProjectToContractMutation,
   useRemoveProjectFromContractMutation,
+  useDuplicateProjectMutation,
   type Contract,
   type ContractWithProjects,
 } from '@/features/contracts/contractApi'
@@ -26,9 +28,14 @@ import FileListItem from '@/components/files/FileListItem'
 import FileCardItem from '@/components/files/FileCardItem'
 import FilePreviewModal from '@/components/files/FilePreviewModal'
 import { fetchBlobUrl } from '@/utils/fileUtils'
-import { useGetCustomerQuery, useGetCustomersQuery, useGetProjectsQuery } from '@/features/customers/customerApi'
+import { useGetCustomerQuery, useGetCustomersQuery, useGetProjectsQuery, useDeleteProjectMutation } from '@/features/customers/customerApi'
 import { useListWhiteboardsQuery } from '@/features/whiteboards/whiteboardsApi'
 import { toast } from 'sonner'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 type Tab = 'details' | 'financial' | 'projects' | 'documents' | 'settings'
 
@@ -342,6 +349,12 @@ function BoardsSection({ contractId }: { contractId: string }) {
 
 // ── Details tab ───────────────────────────────────────────────────────────────
 
+function generateContractNumber(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const g = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `${g(3)}-${g(4)}-${g(3)}`
+}
+
 function DetailsTab({ contract }: { contract: Contract }) {
   const [update, { isLoading }] = useUpdateContractMutation()
   const [editing, setEditing] = useState(false)
@@ -387,7 +400,27 @@ function DetailsTab({ contract }: { contract: Contract }) {
         <Section title="General">
           <div className="grid grid-cols-2 gap-3">
             <EField label="Contract name" name="name" value={form.name} onChange={set} />
-            <EField label="Contract number" name="contract_number" value={form.contract_number} onChange={set} />
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Contract number</label>
+              <div className="flex gap-1.5">
+                <input
+                  value={form.contract_number}
+                  onChange={(e) => set('contract_number', e.target.value)}
+                  placeholder="Contract number"
+                  className="flex-1 border rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                {!form.contract_number && (
+                  <button
+                    type="button"
+                    onClick={() => set('contract_number', generateContractNumber())}
+                    title="Generate contract number"
+                    className="px-2.5 py-1.5 border rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
             <ESelect label="Status" name="status" value={form.status} onChange={set} options={STATUS_OPTIONS} />
             <EField label="Start date" name="start_date" value={form.start_date} onChange={set} type="date" />
             <EField label="End date" name="end_date" value={form.end_date} onChange={set} type="date" />
@@ -580,14 +613,170 @@ function FinancialTab({ contract }: { contract: Contract }) {
   )
 }
 
+// ── Combobox ──────────────────────────────────────────────────────────────────
+
+function Combobox({ options, value, onChange, placeholder, disabled }: {
+  options: { id: string; label: string }[]
+  value: string
+  onChange: (id: string) => void
+  placeholder: string
+  disabled?: boolean
+}) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const selected = options.find((o) => o.id === value)
+  const filtered = search
+    ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options
+
+  return (
+    <div className="relative">
+      <input
+        value={open ? search : (selected?.label ?? '')}
+        onChange={(e) => { setSearch(e.target.value); setOpen(true) }}
+        onFocus={() => { setSearch(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => { setOpen(false); setSearch('') }, 150)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-card border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); onChange(o.id); setSearch(''); setOpen(false) }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${value === o.id ? 'font-medium' : ''}`}
+              >
+                {o.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ── Duplicate project modal ───────────────────────────────────────────────────
+
+function DuplicateProjectModal({
+  project,
+  onClose,
+}: {
+  project: { id: string; name: string }
+  onClose: () => void
+}) {
+  const [duplicateProject, { isLoading }] = useDuplicateProjectMutation()
+  const { data: customers = [] } = useGetCustomersQuery()
+  const [customerId, setCustomerId] = useState('')
+  const [contractId, setContractId] = useState('')
+  const { data: contracts = [] } = useGetContractsQuery(
+    { customer_id: customerId },
+    { skip: !customerId },
+  )
+
+  useEffect(() => { setContractId('') }, [customerId])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!customerId || !contractId) return
+    try {
+      await duplicateProject({
+        project_id: project.id,
+        target_customer_id: customerId,
+        target_contract_id: contractId,
+      }).unwrap()
+      toast.success('Project duplicated.')
+      onClose()
+    } catch {
+      toast.error('Failed to duplicate project.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-card rounded-xl shadow-xl p-6 w-full max-w-md space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <h2 className="font-semibold text-lg">Duplicate Project</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Copy <span className="font-medium text-foreground">"{project.name}"</span> to another contract.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Customer</label>
+          <Combobox
+            options={customers.map((c) => ({ id: c.id, label: c.name }))}
+            value={customerId}
+            onChange={setCustomerId}
+            placeholder="Search customer…"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Contract</label>
+          <Combobox
+            options={contracts.map((c) => ({
+              id: c.id,
+              label: c.name + (c.contract_number ? ` (${c.contract_number})` : ''),
+            }))}
+            value={contractId}
+            onChange={setContractId}
+            placeholder={customerId ? 'Search contract…' : 'Select a customer first…'}
+            disabled={!customerId}
+          />
+        </div>
+
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+          All tasks will be duplicated with status reset to "To Do" and all dates cleared. Files are not copied.
+        </p>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm border rounded hover:bg-muted"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!customerId || !contractId || isLoading}
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50"
+          >
+            {isLoading ? 'Duplicating…' : 'Duplicate'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ── Projects tab ──────────────────────────────────────────────────────────────
 
 function ProjectsTab({ contract }: { contract: { id: string; customer_id: string; projects: any[] } }) {
   const [createProject] = useCreateProjectInContractMutation()
+  const [deleteProject] = useDeleteProjectMutation()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [duplicatingProject, setDuplicatingProject] = useState<{ id: string; name: string } | null>(null)
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteProject({ id, customer_id: contract.customer_id, contract_id: contract.id }).unwrap()
+      toast.success('Project deleted.')
+    } catch {
+      toast.error('Failed to delete project.')
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -642,16 +831,61 @@ function ProjectsTab({ contract }: { contract: { id: string; customer_id: string
         <div className="space-y-2">
           {contract.projects.map((p) => (
             <div key={p.id}
-              className="flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:border-primary/50 cursor-pointer group transition-colors"
-              onClick={() => navigate(`/projects/${p.id}`)}>
-              <div>
+              className="flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:border-primary/50 group transition-colors">
+              <div className="flex-1 min-w-0">
                 <p className="font-medium">{p.name}</p>
                 {p.description && <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>}
               </div>
-              <ChevronRight size={16} className="text-muted-foreground" />
+              <div className="flex items-center gap-1.5 ml-3 shrink-0">
+                <button
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                  title="Open project"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs border rounded hover:bg-muted transition-colors"
+                >
+                  <ExternalLink size={12} /> Open
+                </button>
+                <button
+                  onClick={() => setDuplicatingProject({ id: p.id, name: p.name })}
+                  title="Duplicate project"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs border rounded hover:bg-muted transition-colors"
+                >
+                  <Copy size={12} /> Duplicate
+                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      title="Delete project"
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs border border-destructive/40 text-destructive rounded hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete "{p.name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the project and all its tasks. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(p.id)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {duplicatingProject && (
+        <DuplicateProjectModal
+          project={duplicatingProject}
+          onClose={() => setDuplicatingProject(null)}
+        />
       )}
     </div>
   )

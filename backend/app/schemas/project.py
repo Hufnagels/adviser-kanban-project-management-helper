@@ -34,3 +34,8 @@ class ProjectOut(BaseModel):
 
 class ProjectWithTasks(ProjectOut):
     tasks: list[TaskOut] = []
+
+
+class ProjectDuplicate(BaseModel):
+    target_customer_id: str
+    target_contract_id: str

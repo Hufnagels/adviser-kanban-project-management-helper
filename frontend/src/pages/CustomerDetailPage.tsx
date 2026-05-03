@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Plus, Trash2, ChevronRight, ChevronLeft, FileText, Pencil, X, Check } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, ChevronLeft, FileText, Pencil, X, Check, RefreshCw } from 'lucide-react'
 import {
   useGetCustomerQuery,
   useUpdateCustomerMutation,
@@ -292,6 +292,12 @@ function ProfileTab({ customer }: { customer: Customer }) {
 
 // ── Contracts tab ─────────────────────────────────────────────────────────────
 
+function generateContractNumber(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const g = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `${g(3)}-${g(4)}-${g(3)}`
+}
+
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-slate-100 text-slate-600',
   active: 'bg-green-100 text-green-700',
@@ -341,8 +347,18 @@ function ContractsTab({ customerId }: { customerId: string }) {
           <h2 className="font-semibold text-sm">New Contract</h2>
           <input autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="Contract name"
             className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-          <input value={contractNumber} onChange={(e) => setContractNumber(e.target.value)} placeholder="Contract number (optional)"
-            className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+          <div className="flex gap-1.5">
+            <input value={contractNumber} onChange={(e) => setContractNumber(e.target.value)} placeholder="Contract number (optional)"
+              className="flex-1 border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary" />
+            <button
+              type="button"
+              onClick={() => setContractNumber(generateContractNumber())}
+              title="Generate contract number"
+              className="px-2.5 py-2 border rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
           <div className="flex gap-2">
             <button type="submit" className="px-4 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:opacity-90">Create</button>
             <button type="button" onClick={() => setShowForm(false)} className="px-4 py-1.5 text-sm border rounded hover:bg-muted">Cancel</button>

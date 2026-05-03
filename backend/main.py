@@ -1,8 +1,10 @@
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -62,6 +64,31 @@ async def lifespan(app: FastAPI):
             await conn.execute(text(_stmt))
         # Enum value additions (ALTER TYPE … ADD VALUE is idempotent via IF NOT EXISTS)
         await conn.execute(text("ALTER TYPE taskstatus ADD VALUE IF NOT EXISTS 'canceled'"))
+
+    # Migrate all existing external_ids to T-YY-NNN format (idempotent)
+    from app.models.task import Task  # noqa — imported after create_all
+    new_fmt = re.compile(r'^T-(\d{2})-(\d+)$')
+    async with AsyncSession(engine) as session:
+        result = await session.execute(select(Task).order_by(Task.created_at))
+        all_tasks = result.scalars().all()
+
+        # Find highest already-assigned number per year-prefix
+        year_max: dict[str, int] = {}
+        for task in all_tasks:
+            if task.external_id and (m := new_fmt.match(task.external_id)):
+                yy = m.group(1)
+                year_max[yy] = max(year_max.get(yy, 0), int(m.group(2)))
+
+        # Renumber tasks that don't match the new format
+        for task in all_tasks:
+            if task.external_id and new_fmt.match(task.external_id):
+                continue
+            yy = str(task.created_at.year)[2:]
+            year_max[yy] = year_max.get(yy, 0) + 1
+            task.external_id = f"T-{yy}-{year_max[yy]:03d}"
+
+        await session.commit()
+
     yield
     await engine.dispose()
 

@@ -85,6 +85,21 @@ export const contractApi = api.injectEndpoints({
         'Project',
       ],
     }),
+    duplicateProject: build.mutation<
+      Project,
+      { project_id: string; target_customer_id: string; target_contract_id: string }
+    >({
+      query: ({ project_id, ...body }) => ({
+        url: `/projects/${project_id}/duplicate`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_r, _e, { target_contract_id }) => [
+        { type: TAG, id: target_contract_id },
+        { type: TAG, id: 'LIST' },
+        'Project',
+      ],
+    }),
   }),
   overrideExisting: false,
 })
@@ -98,4 +113,5 @@ export const {
   useCreateProjectInContractMutation,
   useAddProjectToContractMutation,
   useRemoveProjectFromContractMutation,
+  useDuplicateProjectMutation,
 } = contractApi

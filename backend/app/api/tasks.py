@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -38,16 +39,18 @@ async def create_task(
 ):
     task = Task(**payload.model_dump(), created_by=current_user.id)
 
-    # Auto-generate external_id if not supplied
+    # Auto-generate external_id if not supplied: format T-YY-NNN (e.g. T-26-001)
     if not task.external_id:
-        result = await db.execute(select(Task.external_id).where(Task.external_id.like("TASK-%")))
+        yy = str(date.today().year)[2:]
+        prefix = f"T-{yy}-"
+        result = await db.execute(select(Task.external_id).where(Task.external_id.like(f"{prefix}%")))
         existing = result.scalars().all()
         nums = [
             int(m.group(1))
             for eid in existing
-            if eid and (m := re.match(r"TASK-(\d+)$", eid))
+            if eid and (m := re.match(rf"T-{yy}-(\d+)$", eid))
         ]
-        task.external_id = f"TASK-{(max(nums) + 1) if nums else 1:04d}"
+        task.external_id = f"{prefix}{(max(nums) + 1) if nums else 1:03d}"
 
     db.add(task)
     await db.commit()

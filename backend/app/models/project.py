@@ -30,4 +30,5 @@ class Project(Base):
         "Task",
         primaryjoin="Project.id == foreign(Task.project_id)",
         lazy="selectin",
+        cascade="all, delete-orphan",
     )

@@ -81,13 +81,15 @@ export const customerApi = api.injectEndpoints({
         ...(customer_id ? [{ type: 'Customer' as const, id: customer_id }] : []),
       ],
     }),
-    deleteProject: build.mutation<void, { id: string; customer_id?: string }>({
+    deleteProject: build.mutation<void, { id: string; customer_id?: string; contract_id?: string }>({
       query: ({ id }) => ({ url: `/projects/${id}`, method: 'DELETE' }),
-      invalidatesTags: (_r, _e, { id, customer_id }) => [
+      invalidatesTags: (_r, _e, { id, customer_id, contract_id }) => [
         { type: 'Project' as const, id },
         { type: 'Project' as const, id: 'LIST' },
         { type: 'Customer' as const, id: 'LIST' },
         ...(customer_id ? [{ type: 'Customer' as const, id: customer_id }] : []),
+        { type: 'Contract' as const, id: 'LIST' },
+        ...(contract_id ? [{ type: 'Contract' as const, id: contract_id }] : []),
       ],
     }),
   }),
