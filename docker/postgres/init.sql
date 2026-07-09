@@ -20,7 +20,7 @@ VALUES (
     gen_random_uuid()::text,
     'admin@example.com',
     'Admin',
-    '$2b$12$3LyZlKUlUfvoCx17cEP9f.02KqJ0EGnGhXu936GfHkMTyIfmspCYO',
+    '$2b$12$dbZaAFJIdPLO4TipVL5hOeJsIcg/xtkbHZ.iNSm6j2ao/zrQgeRwW',
     'admin',
     TRUE
 )
